@@ -1,5 +1,5 @@
-name: x402 preflight
-description: Audit your x402 paid endpoint on every deploy — 402 challenge, CAIP-2 network, USDC asset, payTo checksum, price, EIP-712 domain, discovery.
+name: Aether x402 Preflight Audit
+description: Audit your x402 paid API on every deploy - 402 challenge, network, USDC asset, payTo, price and signing domain.
 author: Aether
 branding:
   icon: check-circle

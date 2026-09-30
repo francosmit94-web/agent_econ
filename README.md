@@ -1,4 +1,4 @@
-# x402 preflight
+# Aether x402 Preflight Audit
 
 Catch a broken x402 paywall before an agent does. On every deploy this Action sends your paid endpoint one unpaid request and audits the 402 challenge it returns.
 
