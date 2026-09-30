@@ -1,0 +1,20 @@
+name: selftest
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * *"
+jobs:
+  free-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: preflight
+        uses: ./
+        with:
+          url: https://aether-x402.vercel.app/api/x402/preflight
+          headers: '{"idempotency-key":"selftest-${{ github.run_id }}"}'
+          body: '{"url":"https://example.com/pay"}'
+          fail-on: warn
+      - run: echo "verdict=${{ steps.preflight.outputs.verdict }} score=${{ steps.preflight.outputs.score }}"

@@ -19,7 +19,7 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     steps:
-      - uses: aether/x402-preflight@v1
+      - uses: francosmit94-web/agent_econ@v1
         with:
           url: https://api.example.com/v1/weather
 ```
@@ -39,7 +39,7 @@ If your endpoint validates the request before the paywall, pass what it needs:
 2. Save its private key as a repository secret named `X402_CI_PAYER_KEY`.
 
 ```yaml
-      - uses: aether/x402-preflight@v1
+      - uses: francosmit94-web/agent_econ@v1
         with:
           url: https://api.example.com/v1/weather
           mode: paid
