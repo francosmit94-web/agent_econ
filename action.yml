@@ -1,0 +1,75 @@
+name: x402 preflight
+description: Audit your x402 paid endpoint on every deploy — 402 challenge, CAIP-2 network, USDC asset, payTo checksum, price, EIP-712 domain, discovery.
+author: Aether
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  url:
+    description: Public https URL of the x402 endpoint to audit
+    required: true
+  method:
+    description: HTTP method (defaults to POST when body is set, otherwise GET)
+    required: false
+  body:
+    description: Example JSON body your endpoint accepts before its paywall
+    required: false
+  headers:
+    description: JSON object of non-credential headers your endpoint needs (e.g. Idempotency-Key)
+    required: false
+  mode:
+    description: "free (shallow audit, no wallet) or paid (full audit with fixes, $0.01 USDC on Base)"
+    required: false
+    default: free
+  payer-private-key:
+    description: Private key of a wallet holding a little USDC on Base (paid mode). Store as a repository secret and fund it with cents only.
+    required: false
+  max-price:
+    description: Hard cap in USDC per audit; the action refuses to sign anything above it
+    required: false
+    default: "0.05"
+  fail-on:
+    description: "Fail the job on: fail (default), warn (fail or warn or inconclusive), never"
+    required: false
+    default: fail
+  gateway:
+    description: Audit gateway base URL
+    required: false
+    default: https://aether-x402.vercel.app
+
+outputs:
+  verdict:
+    description: pass, warn, fail, or inconclusive
+    value: ${{ steps.run.outputs.verdict }}
+  score:
+    description: 0-100
+    value: ${{ steps.run.outputs.score }}
+  report-path:
+    description: Path of the JSON report
+    value: ${{ steps.run.outputs.report-path }}
+  transaction:
+    description: Base settlement transaction of the paid audit (paid mode)
+    value: ${{ steps.run.outputs.transaction }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install x402 client (paid mode only)
+      if: ${{ inputs.mode == 'paid' }}
+      shell: bash
+      run: npm install --prefix "$GITHUB_ACTION_PATH" --no-audit --no-fund --silent
+    - id: run
+      name: Run x402 preflight
+      shell: bash
+      env:
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_METHOD: ${{ inputs.method }}
+        INPUT_BODY: ${{ inputs.body }}
+        INPUT_HEADERS: ${{ inputs.headers }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_PAYER_PRIVATE_KEY: ${{ inputs.payer-private-key }}
+        INPUT_MAX_PRICE: ${{ inputs.max-price }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_GATEWAY: ${{ inputs.gateway }}
+      run: node "$GITHUB_ACTION_PATH/x402-preflight.mjs"

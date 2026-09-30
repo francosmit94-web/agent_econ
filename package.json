@@ -1,0 +1,13 @@
+{
+  "name": "x402-preflight",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Audit x402 paid endpoints in CI",
+  "type": "module",
+  "bin": { "x402-preflight": "x402-preflight.mjs" },
+  "dependencies": {
+    "@x402/evm": "2.27.0",
+    "@x402/fetch": "2.27.0",
+    "viem": "2.55.0"
+  }
+}
