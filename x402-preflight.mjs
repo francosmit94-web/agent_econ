@@ -11,6 +11,7 @@
 // full audit ($0.01 USDC on Base) with per-check fixes; a hard spend cap guards the payer wallet.
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const DEFAULT_GATEWAY = "https://aether-x402.vercel.app";
 const PAID_NETWORK = "eip155:8453";
@@ -92,7 +93,8 @@ export async function main({ argv, env = process.env, log = console.log } = {}) 
   return { report, settlement, exitCode: failed ? 1 : 0 };
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/").split("/").pop());
+// Resolve symlinks: npx/npm bin shims launch this file through a link on Linux and macOS.
+const invokedDirectly = (() => { try { return Boolean(process.argv[1]) && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
 if (invokedDirectly) {
   main().then(({ exitCode }) => process.exit(exitCode)).catch(error => {
     console.error(process.env.GITHUB_ACTIONS ? `::error::${error.message}` : `x402-preflight: ${error.message}`);
