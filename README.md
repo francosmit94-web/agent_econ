@@ -71,11 +71,22 @@ The Action only signs for the default USDC asset on Base (`eip155:8453`), and ne
 | `payer-private-key` | | Paid mode only. Always use a secret. |
 | `max-price` | `0.05` | USDC cap per audit |
 | `fail-on` | `fail` | `fail`, `warn` (also fails on inconclusive), or `never` |
+| `min-score` | | Also block when the score is below this (0–100) |
+| `ignore-checks` | | Check ids that never block, e.g. `testnet,discovery.wellKnown` |
 | `gateway` | `https://aether-x402.vercel.app` | Audit service |
+
+## Tuning the gate
+
+The audit itself stays strict: one failing check makes the verdict `fail`. The gate decides what blocks your deploy.
+- **Default** (`fail-on: fail`): any failing check blocks the job; warnings don't.
+- **Accept known findings:** `ignore-checks: testnet,discovery.wellKnown` drops those checks before gating. `testnet` matches every `accepts[n].testnet`.
+- **Score floor only:** `fail-on: never` + `min-score: 70` blocks only when the score drops below 70.
+
+The summary names the checks that blocked the job, and the `gate` and `blocking` outputs carry the same for later steps.
 
 ## Outputs
 
-`verdict` (`pass`, `warn`, `fail` or `inconclusive`), `score` (0–100), `report-path` (JSON report), and `transaction` (Base settlement tx in paid mode). A table of every check is written to the job summary.
+`verdict` (`pass`, `warn`, `fail` or `inconclusive`), `score` (0–100), `gate` (`passed` or `blocked`), `blocking` (check ids), `report-path` (JSON report, with `failures[]` and `warnings[]` near the top), and `transaction` (Base settlement tx in paid mode). A table of every check is written to the job summary.
 
 ## CLI
 

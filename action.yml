@@ -36,6 +36,12 @@ inputs:
     description: "Fail the job on: fail (default), warn (fail or warn or inconclusive), never"
     required: false
     default: fail
+  min-score:
+    description: Also block the job when the score is below this (0-100). Combine with fail-on never for a pure score gate
+    required: false
+  ignore-checks:
+    description: Comma-separated check ids that never block, e.g. testnet,discovery.wellKnown (accepts[n]. prefixes match by suffix)
+    required: false
   gateway:
     description: Audit gateway base URL
     required: false
@@ -54,6 +60,12 @@ outputs:
   transaction:
     description: Base settlement transaction of the paid audit (paid mode)
     value: ${{ steps.run.outputs.transaction }}
+  gate:
+    description: passed or blocked
+    value: ${{ steps.run.outputs.gate }}
+  blocking:
+    description: Comma-separated ids of the checks that blocked the job
+    value: ${{ steps.run.outputs.blocking }}
 
 runs:
   using: composite
@@ -76,4 +88,6 @@ runs:
         INPUT_MAX_PRICE: ${{ inputs.max-price }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_GATEWAY: ${{ inputs.gateway }}
+        INPUT_MIN_SCORE: ${{ inputs.min-score }}
+        INPUT_IGNORE_CHECKS: ${{ inputs.ignore-checks }}
       run: node "$GITHUB_ACTION_PATH/x402-preflight.mjs"

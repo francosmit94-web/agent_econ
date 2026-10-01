@@ -6,6 +6,7 @@
 //                  [--headers '{"idempotency-key":"ci-1"}'] [--mode free|paid] [--fail-on fail|warn|never]
 //                  [--max-price 0.05] [--gateway https://aether-x402.vercel.app]
 //                  [--expect '{"network":"eip155:8453","asset":"0x8335...","maxPriceUsd":0.05}']  (checked in paid mode)
+//                  [--min-score 70] [--ignore-checks testnet,discovery.wellKnown]
 //                  paid mode reads the payer key from X402_PAYER_PRIVATE_KEY (or INPUT_PAYER-PRIVATE-KEY).
 //
 // Free mode runs the shallow audit (reachability, HTTP 402, challenge header). Paid mode buys the
@@ -34,11 +35,14 @@ function readOptions(argv = process.argv.slice(2), env = process.env) {
     gateway: String(input("gateway") || DEFAULT_GATEWAY).replace(/\/$/, ""),
     payerKey: input("payer-private-key") || env.X402_PAYER_PRIVATE_KEY,
     reportPath: input("report-path") || "x402-preflight-report.json",
+    minScore: input("min-score") === undefined || input("min-score") === "" ? undefined : Number(input("min-score")),
+    ignoreChecks: String(input("ignore-checks") || "").split(",").map(v => v.trim()).filter(Boolean),
   };
   if (!options.url) throw new Error("url is required");
   if (!["free", "paid"].includes(options.mode)) throw new Error("mode must be free or paid");
   if (!["fail", "warn", "never"].includes(options.failOn)) throw new Error("fail-on must be fail, warn, or never");
   if (!(options.maxPrice > 0 && options.maxPrice <= 1)) throw new Error("max-price must be between 0 and 1 USDC");
+  if (options.minScore !== undefined && !(Number.isFinite(options.minScore) && options.minScore >= 0 && options.minScore <= 100)) throw new Error("min-score must be a number from 0 to 100");
   if (options.mode === "paid" && !options.payerKey) throw new Error("paid mode needs payer-private-key (store it as a repository secret)");
   return options;
 }
@@ -81,6 +85,21 @@ export function shouldFail(verdict, failOn) {
   return failOn === "warn" && (verdict === "warn" || verdict === "inconclusive");
 }
 
+// "testnet" matches accepts[0].testnet, accepts[3].testnet, …; full ids match exactly.
+const matchesIgnore = (id, ignore) => ignore.some(rule => rule === id || id.replace(/^accepts\[\d+\]\./, "") === rule);
+
+// CI gate: the audit stays strict; the gate decides what blocks a deploy.
+// fail-on picks which verdicts block, ignore-checks drops checks you accept, min-score adds a floor.
+export function gateDecision(report, { failOn = "fail", minScore, ignoreChecks = [] } = {}) {
+  const considered = report.checks.filter(c => !matchesIgnore(c.id, ignoreChecks));
+  const failures = considered.filter(c => c.status === "fail"), warnings = considered.filter(c => c.status === "warn");
+  const verdict = failures.length ? "fail" : report.verdict === "inconclusive" ? "inconclusive" : warnings.length ? "warn" : "pass";
+  const reasons = [];
+  if (shouldFail(verdict, failOn)) reasons.push(`${verdict} under fail-on=${failOn}: ${(failures.length ? failures : warnings).map(c => c.id).join(", ") || verdict}`);
+  if (minScore !== undefined && report.score < minScore) reasons.push(`score ${report.score} is below min-score ${minScore}`);
+  return { failed: reasons.length > 0, reasons, effectiveVerdict: verdict, blocking: failOn === "never" ? [] : (failures.length ? failures : failOn === "warn" ? warnings : []).map(c => c.id), ignored: report.checks.filter(c => matchesIgnore(c.id, ignoreChecks)).map(c => c.id) };
+}
+
 export async function main({ argv, env = process.env, log = console.log } = {}) {
   const options = readOptions(argv, env);
   const target = { url: options.url, ...(options.method ? { method: options.method } : {}), ...(options.headers ? { headers: options.headers } : {}), ...(options.body !== undefined ? { body: options.body } : {}), ...(options.expect ? { expect: options.expect } : {}) };
@@ -89,10 +108,13 @@ export async function main({ argv, env = process.env, log = console.log } = {}) 
   fs.writeFileSync(options.reportPath, JSON.stringify({ ...report, settlement }, null, 2));
   if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
   if (env.GITHUB_OUTPUT) fs.appendFileSync(env.GITHUB_OUTPUT, [`verdict=${report.verdict}`, `score=${report.score}`, `report-path=${options.reportPath}`, `transaction=${settlement?.transaction || ""}`].join("\n") + "\n");
-  log(markdown);
-  const failed = shouldFail(report.verdict, options.failOn);
-  if (failed && env.GITHUB_ACTIONS) log(`::error::x402 preflight ${report.verdict}: ${report.summary}`);
-  return { report, settlement, exitCode: failed ? 1 : 0 };
+  const gate = gateDecision(report, options);
+  const gateLine = gate.failed ? `**Gate: blocked** (${gate.reasons.join("; ")})` : `**Gate: passed**${gate.ignored.length ? ` (ignored: ${gate.ignored.join(", ")})` : ""}`;
+  if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `\n${gateLine}\n`);
+  if (env.GITHUB_OUTPUT) fs.appendFileSync(env.GITHUB_OUTPUT, [`gate=${gate.failed ? "blocked" : "passed"}`, `blocking=${gate.blocking.join(",")}`].join("\n") + "\n");
+  log(`${markdown}\n\n${gateLine}`);
+  if (gate.failed && env.GITHUB_ACTIONS) log(`::error::x402 preflight gate blocked: ${gate.reasons.join("; ")}`);
+  return { report, settlement, gate, exitCode: gate.failed ? 1 : 0 };
 }
 
 // Resolve symlinks: npx/npm bin shims launch this file through a link on Linux and macOS.
