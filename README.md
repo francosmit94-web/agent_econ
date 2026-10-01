@@ -48,6 +48,14 @@ If your endpoint validates the request before the paywall, pass what it needs:
           fail-on: warn       # fail | warn | never
 ```
 
+Add `expect` to gate on what *your* buyers need, so the job fails if the endpoint isn't payable that way:
+
+```yaml
+          expect: '{"network":"eip155:8453","asset":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","maxPriceUsd":0.05}'
+```
+
+The full audit also reports domain facts from RDAP (age, expiry, registrar) and warns on very new or soon-expiring domains.
+
 The Action only signs for the default USDC asset on Base (`eip155:8453`), and never above `max-price` (default `0.05`).
 
 ## Inputs
@@ -58,6 +66,7 @@ The Action only signs for the default USDC asset on Base (`eip155:8453`), and ne
 | `method` | POST if `body` is set, else GET | |
 | `body` | | Example JSON body |
 | `headers` | | JSON object of non-credential headers. `Authorization` and `Cookie` are refused. |
+| `expect` | | JSON `{network, asset, maxPriceUsd}` your buyers need (paid mode) |
 | `mode` | `free` | `free` or `paid` |
 | `payer-private-key` | | Paid mode only. Always use a secret. |
 | `max-price` | `0.05` | USDC cap per audit |

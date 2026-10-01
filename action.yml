@@ -18,6 +18,9 @@ inputs:
   headers:
     description: JSON object of non-credential headers your endpoint needs (e.g. Idempotency-Key)
     required: false
+  expect:
+    description: 'JSON of what your paying agents need, e.g. {"network":"eip155:8453","maxPriceUsd":0.05}. Checked in paid mode (fails the audit if unmet)'
+    required: false
   mode:
     description: "free (shallow audit, no wallet) or paid (full audit with fixes, $0.01 USDC on Base)"
     required: false
@@ -67,6 +70,7 @@ runs:
         INPUT_METHOD: ${{ inputs.method }}
         INPUT_BODY: ${{ inputs.body }}
         INPUT_HEADERS: ${{ inputs.headers }}
+        INPUT_EXPECT: ${{ inputs.expect }}
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_PAYER_PRIVATE_KEY: ${{ inputs.payer-private-key }}
         INPUT_MAX_PRICE: ${{ inputs.max-price }}

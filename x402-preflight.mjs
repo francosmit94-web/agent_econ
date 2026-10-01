@@ -5,6 +5,7 @@
 //   CLI:           node x402-preflight.mjs --url https://api.example.com/paid [--method POST] [--body '{"q":1}']
 //                  [--headers '{"idempotency-key":"ci-1"}'] [--mode free|paid] [--fail-on fail|warn|never]
 //                  [--max-price 0.05] [--gateway https://aether-x402.vercel.app]
+//                  [--expect '{"network":"eip155:8453","asset":"0x8335...","maxPriceUsd":0.05}']  (checked in paid mode)
 //                  paid mode reads the payer key from X402_PAYER_PRIVATE_KEY (or INPUT_PAYER-PRIVATE-KEY).
 //
 // Free mode runs the shallow audit (reachability, HTTP 402, challenge header). Paid mode buys the
@@ -26,6 +27,7 @@ function readOptions(argv = process.argv.slice(2), env = process.env) {
     method: input("method") || undefined,
     body: json("body", input("body")),
     headers: json("headers", input("headers")),
+    expect: json("expect", input("expect")),
     mode: (input("mode") || "free").toLowerCase(),
     failOn: (input("fail-on") || "fail").toLowerCase(),
     maxPrice: Number(input("max-price") || 0.05),
@@ -81,7 +83,7 @@ export function shouldFail(verdict, failOn) {
 
 export async function main({ argv, env = process.env, log = console.log } = {}) {
   const options = readOptions(argv, env);
-  const target = { url: options.url, ...(options.method ? { method: options.method } : {}), ...(options.headers ? { headers: options.headers } : {}), ...(options.body !== undefined ? { body: options.body } : {}) };
+  const target = { url: options.url, ...(options.method ? { method: options.method } : {}), ...(options.headers ? { headers: options.headers } : {}), ...(options.body !== undefined ? { body: options.body } : {}), ...(options.expect ? { expect: options.expect } : {}) };
   const { report, settlement } = options.mode === "paid" ? await runPaid(options, target) : await runFree(options, target);
   const markdown = renderMarkdown(report, options, settlement);
   fs.writeFileSync(options.reportPath, JSON.stringify({ ...report, settlement }, null, 2));
