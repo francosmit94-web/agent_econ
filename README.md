@@ -2,7 +2,9 @@
 
 Catch a broken x402 paywall before an agent does. On every deploy this Action sends your paid endpoint one unpaid request and audits the 402 challenge it returns.
 
-- **Free mode** (default, no wallet): reachability, HTTPS, HTTP 402, `PAYMENT-REQUIRED` header.
+**The #1 check: content served without payment.** If your endpoint answers an unpaid request with HTTP 200 instead of 402, agents get your data for free, and nothing tells you. It's the most common x402 misconfiguration, it silently costs money, and it's checked in both modes.
+
+- **Free mode** (default, no wallet): reachability, HTTPS, HTTP 402 (vs. 200 served without payment), `PAYMENT-REQUIRED` header.
 - **Paid mode** (`$0.01` USDC on Base per run): the full audit with a fix for every problem, covering:
   - CAIP-2 network and the canonical USDC asset (including testnet/mainnet mix-ups)
   - `payTo` EIP-55 checksum, price, and authorization window
@@ -81,6 +83,8 @@ The audit itself stays strict: one failing check makes the verdict `fail`. The g
 - **Default** (`fail-on: fail`): any failing check blocks the job; warnings don't.
 - **Accept known findings:** `ignore-checks: testnet,discovery.wellKnown` drops those checks before gating. `testnet` matches every `accepts[n].testnet`.
 - **Score floor only:** `fail-on: never` + `min-score: 70` blocks only when the score drops below 70.
+
+**Semantics, precisely:** `min-score` is compared against the **raw audit score**. `ignore-checks` only removes checks from the *blocking decision*; it never changes the score. A floor you calibrate on the unfiltered audit keeps meaning exactly that, whatever you ignore.
 
 The summary names the checks that blocked the job, and the `gate` and `blocking` outputs carry the same for later steps.
 
